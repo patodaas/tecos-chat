@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tecos Chat · UAG</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  /* ── Variables UAG ─────────────────────────────────────── */
+  :root {
+    --tinto:    #6B1020;
+    --tinto-d:  #4a0b16;
+    --tinto-l:  #8a1528;
+    --gris:     #2C2C2C;
+    --gris-l:   #3d3d3d;
+    --gris-ll:  #555;
+    --naranja:  #E8890C;
+    --naranja-l:#f5a030;
+    --blanco:   #f5f0eb;
+    --texto:    #e8e0d8;
+    --burbuja-own: #6B1020;
+    --burbuja-other: #3d3d3d;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Inter', sans-serif;
+    background: var(--gris);
+    color: var(--texto);
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* ── Header ────────────────────────────────────────────── */
+  header {
+    background: var(--tinto-d);
+    padding: 0 20px;
+    height: 64px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    border-bottom: 3px solid var(--naranja);
+    flex-shrink: 0;
+    position: relative;
+  }
+
+  .logo-shield {
+    width: 38px; height: 38px;
+    background: var(--naranja);
+    clip-path: polygon(50% 0%, 100% 20%, 100% 70%, 50% 100%, 0% 70%, 0% 20%);
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 14px; color: var(--tinto-d);
+    flex-shrink: 0;
+  }
+
+  .header-title {
+    display: flex; flex-direction: column;
+  }
+
+  .header-title span:first-child {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 22px;
+    letter-spacing: 2px;
+    color: var(--naranja);
+    line-height: 1;
+  }
+
+  .header-title span:last-child {
+    font-size: 11px;
+    color: #c0a898;
+    letter-spacing: 0.5px;
+  }
+
+  #status-dot {
+    width: 9px; height: 9px;
+    border-radius: 50%;
+    background: #888;
+    margin-left: auto;
+    transition: background 0.4s;
+    flex-shrink: 0;
+  }
+  #status-dot.online { background: #4caf50; box-shadow: 0 0 6px #4caf50; }
+  #status-dot.offline { background: #f44336; }
+
+  #server-tag {
+    font-size: 11px;
+    color: #c0a898;
+    margin-left: 6px;
+  }
+
+  /* ── Login screen ──────────────────────────────────────── */
+  #login-screen {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--gris);
+  }
+
+  .login-box {
+    background: var(--gris-l);
+    border: 1px solid var(--tinto-l);
+    border-top: 4px solid var(--naranja);
+    border-radius: 10px;
+    padding: 40px 36px;
+    width: 320px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  }
+
+  .login-box h2 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 26px;
+    letter-spacing: 2px;
+    color: var(--naranja);
+    text-align: center;
+  }
+
+  .login-box p {
+    font-size: 12px;
+    color: #aaa;
+    text-align: center;
+    margin-top: -8px;
+  }
+
+  .login-box label {
+    font-size: 12px;
+    color: #bbb;
+    margin-bottom: 4px;
+    display: block;
+  }
+
+  .login-box input {
+    width: 100%;
+    background: var(--gris);
+    border: 1px solid var(--gris-ll);
+    border-radius: 6px;
+    padding: 10px 12px;
+    color: var(--texto);
+    font-size: 14px;
+    font-family: 'Inter', sans-serif;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .login-box input:focus {
+    border-color: var(--naranja);
+  }
+
+  .btn-entrar {
+    background: var(--tinto);
+    color: var(--naranja);
+    border: none;
+    border-radius: 6px;
+    padding: 12px;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 18px;
+    letter-spacing: 2px;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.1s;
+    margin-top: 4px;
+  }
+
+  .btn-entrar:hover { background: var(--tinto-l); transform: translateY(-1px); }
+  .btn-entrar:active { transform: translateY(0); }
+
+  /* ── Chat screen ───────────────────────────────────────── */
+  #chat-screen {
+    flex: 1;
+    display: none;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  #messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px 16px 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    scroll-behavior: smooth;
+  }
+
+  #messages::-webkit-scrollbar { width: 5px; }
+  #messages::-webkit-scrollbar-track { background: transparent; }
+  #messages::-webkit-scrollbar-thumb { background: var(--gris-ll); border-radius: 3px; }
+
+  /* ── Mensajes ──────────────────────────────────────────── */
+  .msg-wrap {
+    display: flex;
+    flex-direction: column;
+    max-width: 72%;
+    animation: fadeUp 0.2s ease;
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .msg-wrap.own  { align-self: flex-end; align-items: flex-end; }
+  .msg-wrap.other { align-self: flex-start; align-items: flex-start; }
+
+  .msg-name {
+    font-size: 11px;
+    color: var(--naranja);
+    margin-bottom: 2px;
+    padding: 0 4px;
+    font-weight: 600;
+  }
+
+  .msg-wrap.own .msg-name { color: #c0a898; }
+
+  .msg-bubble {
+    padding: 9px 14px;
+    border-radius: 16px;
+    font-size: 14px;
+    line-height: 1.5;
+    word-break: break-word;
+    position: relative;
+  }
+
+  .msg-wrap.own .msg-bubble {
+    background: var(--tinto);
+    border-bottom-right-radius: 4px;
+    color: #f0e0d0;
+  }
+
+  .msg-wrap.other .msg-bubble {
+    background: var(--burbuja-other);
+    border-bottom-left-radius: 4px;
+    color: var(--texto);
+  }
+
+  .msg-time {
+    font-size: 10px;
+    color: #888;
+    margin-top: 2px;
+    padding: 0 4px;
+  }
+
+  /* Mensaje de sistema */
+  .msg-system {
+    align-self: center;
+    font-size: 11px;
+    color: #777;
+    background: rgba(255,255,255,0.04);
+    padding: 4px 12px;
+    border-radius: 20px;
+    margin: 4px 0;
+  }
+
+  /* ── Input bar ─────────────────────────────────────────── */
+  #input-bar {
+    display: flex;
+    gap: 8px;
+    padding: 12px 16px;
+    background: var(--tinto-d);
+    border-top: 2px solid var(--naranja);
+    flex-shrink: 0;
+  }
+
+  #msg-input {
+    flex: 1;
+    background: var(--gris-l);
+    border: 1px solid var(--gris-ll);
+    border-radius: 22px;
+    padding: 10px 16px;
+    color: var(--texto);
+    font-size: 14px;
+    font-family: 'Inter', sans-serif;
+    outline: none;
+    transition: border-color 0.2s;
+    resize: none;
+  }
+
+  #msg-input:focus { border-color: var(--naranja); }
+  #msg-input::placeholder { color: #666; }
+
+  #send-btn {
+    width: 44px; height: 44px;
+    background: var(--naranja);
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    transition: background 0.2s, transform 0.1s;
+  }
+
+  #send-btn:hover { background: var(--naranja-l); transform: scale(1.05); }
+  #send-btn:active { transform: scale(0.97); }
+
+  #send-btn svg { fill: var(--tinto-d); }
+
+  /* ── Offline banner ────────────────────────────────────── */
+  #offline-banner {
+    display: none;
+    background: #7a2020;
+    color: #f5b0b0;
+    text-align: center;
+    font-size: 12px;
+    padding: 5px;
+    flex-shrink: 0;
+  }
+</style>
+</head>
+<body>
+
+<!-- ── Header siempre visible ─────────────────────────────────────────────── -->
+<header>
+  <div class="logo-shield">UAG</div>
+  <div class="header-title">
+    <span>TECOS CHAT</span>
+    <span>Chat Grupal · UAG Guadalajara</span>
+  </div>
+  <span id="server-tag"></span>
+  <div id="status-dot"></div>
+</header>
+
+<div id="offline-banner">⚠ Sin conexión al servidor — reintentando...</div>
+
+<!-- ── Login ──────────────────────────────────────────────────────────────── -->
+<div id="login-screen">
+  <div class="login-box">
+    <h2>¡Arre Tecos!</h2>
+    <p>Entra al chat grupal de la UAG</p>
+    <div>
+      <label>Tu nombre</label>
+      <input id="name-input" type="text" placeholder="Ej: Chuy Ramírez" maxlength="30">
+    </div>
+    <button class="btn-entrar" onclick="entrar()">Entrar al Chat</button>
+  </div>
+</div>
+
+<!-- ── Chat ───────────────────────────────────────────────────────────────── -->
+<div id="chat-screen">
+  <div id="messages"></div>
+  <div id="input-bar">
+    <input id="msg-input" type="text" placeholder="Escribe un mensaje..." maxlength="500" autocomplete="off">
+    <button id="send-btn" onclick="enviar()">
+      <svg width="20" height="20" viewBox="0 0 24 24"><path d="M2 21l21-9L2 3v7l15 2-15 2z"/></svg>
+    </button>
+  </div>
+</div>
+
+<script>
+  let ws = null;
+  let miNombre = "";
+  let reconnectTimer = null;
+
+  // IPs de los servidores: se leen de ?s1=IP&s2=IP en la URL,
+  // si no vienen, se usa el mismo host desde donde se abrió la página.
+  function buildServers() {
+    const params = new URLSearchParams(window.location.search);
+    const host   = window.location.hostname || "192.168.1.3";
+    const ip1    = params.get("s1") || host;
+    const ip2    = params.get("s2") || host;
+    // Ambos apuntan al mismo puerto cuando hay un solo server
+    const p1 = params.get("p1") || "9000";
+    const p2 = params.get("p2") || "9000";
+    return [`ws://${ip1}:${p1}`, `ws://${ip2}:${p2}`];
+  }
+  const SERVERS = buildServers();
+  let servidorActual = null;
+  let intentoFallback = false;
+
+  function servidorRandom() {
+    return Math.random() < 0.5 ? 0 : 1;
+  }
+
+  // ── Entrada al chat ───────────────────────────────────────────────────────
+
+  function entrar() {
+    const nombre = document.getElementById("name-input").value.trim();
+    if (!nombre) { alert("Ponle tu nombre pls 😄"); return; }
+    miNombre = nombre;
+
+    // Elegir servidor al azar
+    servidorActual = servidorRandom();
+    intentoFallback = false;
+
+    document.getElementById("login-screen").style.display = "none";
+    document.getElementById("chat-screen").style.display = "flex";
+
+    conectar();
+  }
+
+  // ── WebSocket ─────────────────────────────────────────────────────────────
+
+  function conectar() {
+    if (ws) { try { ws.close(); } catch(_) {} }
+
+    const url = SERVERS[servidorActual];
+    const num = servidorActual + 1;
+    document.getElementById("server-tag").textContent = `Servidor ${num}`;
+
+    ws = new WebSocket(url);
+
+    // Timeout de conexión: si en 2s no conectó, intentar el otro servidor
+    const connectionTimeout = setTimeout(() => {
+      if (ws.readyState !== WebSocket.OPEN) {
+        ws.close();
+        intentarFallback();
+      }
+    }, 2000);
+
+    ws.onopen = () => {
+      clearTimeout(connectionTimeout);
+      intentoFallback = false;
+      setStatus(true);
+      document.getElementById("offline-banner").style.display = "none";
+      if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
+      agregarSistema(`Conectado al Servidor ${num} ✓`);
+    };
+
+    ws.onmessage = (e) => {
+      const data = JSON.parse(e.data);
+      if (data.type === "history") {
+        data.messages.forEach(m => renderMensaje(m));
+      } else if (data.type === "message") {
+        renderMensaje(data);
+      }
+    };
+
+    ws.onclose = () => {
+      clearTimeout(connectionTimeout);
+      // Si aún no hemos intentado fallback, probar el otro servidor primero
+      if (!intentoFallback) {
+        intentarFallback();
+      } else {
+        // Ambos fallaron, reintentar el original en 3s
+        setStatus(false);
+        document.getElementById("offline-banner").style.display = "block";
+        if (!reconnectTimer) {
+          reconnectTimer = setTimeout(() => {
+            reconnectTimer = null;
+            intentoFallback = false;
+            conectar();
+          }, 3000);
+        }
+      }
+    };
+
+    ws.onerror = () => { /* onclose se encarga */ };
+  }
+
+  function intentarFallback() {
+    intentoFallback = true;
+    servidorActual = servidorActual === 0 ? 1 : 0;
+    const num = servidorActual + 1;
+    agregarSistema(`Intentando Servidor ${num}...`);
+    setStatus(false);
+    document.getElementById("offline-banner").style.display = "block";
+    conectar();
+  }
+
+  function setStatus(online) {
+    const dot = document.getElementById("status-dot");
+    dot.className = online ? "online" : "offline";
+  }
+
+  // ── Enviar mensaje ────────────────────────────────────────────────────────
+
+  function enviar() {
+    const input = document.getElementById("msg-input");
+    const texto = input.value.trim();
+    if (!texto || !ws || ws.readyState !== WebSocket.OPEN) return;
+
+    const msg = {
+      user: miNombre,
+      text: texto,
+      time: new Date().toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" })
+    };
+
+    ws.send(JSON.stringify(msg));
+    renderMensaje(msg);   // renderizar propio mensaje localmente
+    input.value = "";
+    input.focus();
+  }
+
+  document.addEventListener("keydown", (e) => {
+    const input = document.getElementById("msg-input");
+    if (document.activeElement === input && e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      enviar();
+    }
+  });
+
+  // ── Render ────────────────────────────────────────────────────────────────
+
+  function renderMensaje(msg) {
+    const container = document.getElementById("messages");
+    const esPropio = msg.user === miNombre;
+
+    const wrap = document.createElement("div");
+    wrap.className = "msg-wrap " + (esPropio ? "own" : "other");
+
+    if (!esPropio) {
+      const name = document.createElement("div");
+      name.className = "msg-name";
+      name.textContent = msg.user;
+      wrap.appendChild(name);
+    }
+
+    const bubble = document.createElement("div");
+    bubble.className = "msg-bubble";
+    bubble.textContent = msg.text;
+    wrap.appendChild(bubble);
+
+    const time = document.createElement("div");
+    time.className = "msg-time";
+    time.textContent = msg.time || "";
+    wrap.appendChild(time);
+
+    container.appendChild(wrap);
+    container.scrollTop = container.scrollHeight;
+  }
+
+  function agregarSistema(texto) {
+    const container = document.getElementById("messages");
+    const div = document.createElement("div");
+    div.className = "msg-system";
+    div.textContent = texto;
+    container.appendChild(div);
+    container.scrollTop = container.scrollHeight;
+  }
+
+  // Enfocar input al cargar
+  document.getElementById("name-input").focus();
+  document.getElementById("name-input").addEventListener("keydown", e => {
+    if (e.key === "Enter") entrar();
+  });
+</script>
+</body>
+</html>
