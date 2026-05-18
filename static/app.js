@@ -4,6 +4,12 @@
   // Nombre que escribe el usuario en la pantalla de entrada.
   let miNombre = "";
 
+  // URL de la foto de perfil que se manda junto con cada mensaje.
+  let miAvatarUrl = "/static/default_pfp.webp";
+
+  // Imagen elegida en el login antes de entrar al chat.
+  let fotoPerfilSeleccionada = null;
+
   // Timer usado cuando ambos servidores fallan y toca reintentar despues.
   let reconnectTimer = null;
 
@@ -12,6 +18,9 @@
 
   // Limite de archivo permitido: 20 MB.
   const MAX_FILE_BYTES = 20 * 1024 * 1024;
+
+  // Limite especial para foto de perfil: 2 MB.
+  const MAX_PROFILE_BYTES = 2 * 1024 * 1024;
 
   // Construye las URLs WebSocket de los dos servidores.
   // Los valores salen de la URL: ?s1=IP&s2=IP&p1=PUERTO_WS&p2=PUERTO_WS.
@@ -55,7 +64,7 @@
   }
 
   // Entra al chat despues de validar que el usuario escribio un nombre.
-  function entrar() {
+  async function entrar() {
     const nombre = document.getElementById("name-input").value.trim();
     if (!nombre) {
       alert("Ponle tu nombre pls 😄");
@@ -68,6 +77,19 @@
     // Escogemos servidor inicial al azar para repartir conexiones.
     servidorActual = servidorRandom();
     intentoFallback = false;
+
+    // Si el usuario eligio una foto, la subimos al HTTP del servidor elegido.
+    // Si falla, seguimos con la foto default para no bloquear el login.
+    if (fotoPerfilSeleccionada) {
+      try {
+        miAvatarUrl = (await subirArchivo(fotoPerfilSeleccionada)).url;
+      } catch (_) {
+        alert("No se pudo subir la foto de perfil, se usará la imagen default.");
+        miAvatarUrl = "/static/default_pfp.webp";
+      }
+    } else {
+      miAvatarUrl = "/static/default_pfp.webp";
+    }
 
     // Ocultamos login y mostramos la interfaz del chat.
     document.getElementById("login-screen").style.display = "none";
@@ -188,6 +210,7 @@
     // Mensaje base: usuario, texto y hora visible en la burbuja.
     const msg = {
       user: miNombre,
+      avatar: miAvatarUrl,
       text: texto,
       time: new Date().toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" })
     };
@@ -321,12 +344,28 @@
     const wrap = document.createElement("div");
     wrap.className = "msg-wrap " + (esPropio ? "own" : "other");
 
+    // La fila contiene avatar y contenido; cambia de direccion si es mensaje propio.
+    const row = document.createElement("div");
+    row.className = "msg-row";
+
+    // Avatar del remitente. Si el mensaje no trae avatar, usamos el default.
+    const avatar = document.createElement("img");
+    avatar.className = "msg-avatar";
+    avatar.src = msg.avatar || "/static/default_pfp.webp";
+    avatar.alt = `Foto de ${msg.user || "usuario"}`;
+    avatar.onerror = () => { avatar.src = "/static/default_pfp.webp"; };
+    row.appendChild(avatar);
+
+    // Columna interna con nombre, burbuja y hora.
+    const content = document.createElement("div");
+    content.className = "msg-content";
+
     // Los mensajes ajenos muestran el nombre del remitente.
     if (!esPropio) {
       const name = document.createElement("div");
       name.className = "msg-name";
       name.textContent = msg.user;
-      wrap.appendChild(name);
+      content.appendChild(name);
     }
 
     // Burbuja principal que contiene texto y/o archivo.
@@ -388,13 +427,15 @@
     }
 
     // Agregamos burbuja, hora y finalmente insertamos el mensaje en pantalla.
-    wrap.appendChild(bubble);
+    content.appendChild(bubble);
 
     const time = document.createElement("div");
     time.className = "msg-time";
     time.textContent = msg.time || "";
-    wrap.appendChild(time);
+    content.appendChild(time);
 
+    row.appendChild(content);
+    wrap.appendChild(row);
     container.appendChild(wrap);
     container.scrollTop = container.scrollHeight;
   }
@@ -417,6 +458,36 @@
     if (e.key === "Enter") {
       entrar();
     }
+  });
+
+  // Permite elegir una foto de perfil antes de entrar al chat.
+  document.getElementById("profile-input").addEventListener("change", e => {
+    const file = e.target.files[0];
+
+    // Si cancela el selector, regresamos a la imagen default.
+    if (!file) {
+      fotoPerfilSeleccionada = null;
+      document.getElementById("profile-preview").src = "/static/default_pfp.webp";
+      return;
+    }
+
+    // Solo aceptamos imagenes para evitar usar PDFs u otros archivos como avatar.
+    if (!file.type.startsWith("image/")) {
+      alert("La foto de perfil debe ser una imagen.");
+      e.target.value = "";
+      return;
+    }
+
+    // Limitamos la foto de perfil para que el login sea rapido.
+    if (file.size > MAX_PROFILE_BYTES) {
+      alert("La foto de perfil debe pesar máximo 2 MB.");
+      e.target.value = "";
+      return;
+    }
+
+    // Guardamos la imagen y mostramos una vista previa local.
+    fotoPerfilSeleccionada = file;
+    document.getElementById("profile-preview").src = URL.createObjectURL(file);
   });
 
   // Guarda y valida el archivo cuando el usuario lo selecciona.

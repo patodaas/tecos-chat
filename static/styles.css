@@ -148,6 +148,40 @@ header {
   background: #323f49;
 }
 
+.profile-picker {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  justify-content: center;
+}
+
+#profile-preview {
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--wa-green);
+  background: var(--wa-input-bg);
+}
+
+.profile-btn {
+  background: transparent;
+  color: var(--wa-green);
+  border: 1px solid var(--wa-green);
+  border-radius: 18px;
+  padding: 8px 12px;
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+
+.profile-btn:hover {
+  background: var(--wa-green);
+  color: #fff;
+}
+
 .btn-entrar {
   background: var(--wa-green);
   color: #fff;
@@ -223,6 +257,36 @@ header {
 .msg-wrap.other {
   align-self: flex-start;
   align-items: flex-start;
+}
+
+.msg-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 7px;
+}
+
+.msg-wrap.own .msg-row {
+  flex-direction: row-reverse;
+}
+
+.msg-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--wa-input-bg);
+  flex-shrink: 0;
+}
+
+.msg-content {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+}
+
+.msg-wrap.own .msg-content {
+  align-items: flex-end;
 }
 
 .msg-name {

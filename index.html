@@ -27,6 +27,13 @@
   <div class="login-box">
     <h2>WhatsApp 2</h2>
     <p>Ingresa tu nombre para unirte al chat</p>
+    <div class="profile-picker">
+      <img id="profile-preview" src="/static/default_pfp.webp" alt="Foto de perfil">
+      <button class="profile-btn" type="button" onclick="document.getElementById('profile-input').click()">
+        Elegir foto
+      </button>
+      <input id="profile-input" type="file" accept="image/*" hidden>
+    </div>
     <div>
       <label>Tu nombre</label>
       <input id="name-input" type="text" placeholder="Tu nombre..." maxlength="30">

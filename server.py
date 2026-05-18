@@ -170,6 +170,7 @@ def prepare_message(raw):
     msg = {
         "type": "message",
         "user": str(raw.get("user", "Anonimo"))[:30],
+        "avatar": str(raw.get("avatar", "/static/default_pfp.webp"))[:500],
         "text": str(raw.get("text", ""))[:500],
         "time": str(raw.get("time", ""))[:20],
     }

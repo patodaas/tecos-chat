@@ -11,6 +11,7 @@ pip install websockets
 Necesitas `server.py`, `index.html` y la carpeta `static/` en la misma carpeta.
 El archivo `static/styles.css` contiene los estilos del chat y `static/app.js`
 contiene la lógica del navegador.
+La imagen `static/default_pfp.webp` se usa como foto de perfil default.
 
 ---
 
