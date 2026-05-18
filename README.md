@@ -8,7 +8,9 @@ Chat grupal distribuido. El mismo `server.py` sirve para todos los casos.
 pip install websockets
 ```
 
-Necesitas `server.py` e `index.html` en la misma carpeta.
+Necesitas `server.py`, `index.html` y la carpeta `static/` en la misma carpeta.
+El archivo `static/styles.css` contiene los estilos del chat y `static/app.js`
+contiene la lógica del navegador.
 
 ---
 
@@ -63,6 +65,20 @@ Si ese servidor se cae, el browser brinca al otro automáticamente.
 | `--ws`        | 9000    | Puerto WebSocket de este servidor |
 | `--peer-http` | 8000    | Puerto HTTP del peer              |
 | `--peer-ws`   | 9000    | Puerto WS del peer                |
+
+## Enviar archivos
+
+Desde el chat puedes presionar el icono de clip para adjuntar un archivo de
+hasta 20 MB. Las imágenes se muestran como vista previa y cualquier archivo se
+puede descargar desde la burbuja del mensaje.
+
+La subida del archivo se hace por HTTP con `POST /upload`, atendido por un
+servidor HTTP con hilos independientes. El WebSocket solo manda el mensaje con
+la metadata y el enlace de descarga, así el envío de mensajes no carga los 20 MB.
+
+Los archivos se sirven desde `GET /files/<id>`. Si usas puertos personalizados,
+la URL que imprime el servidor incluye `h1`, `h2`, `p1` y `p2` para que el
+navegador sepa a qué puerto HTTP subir archivos y a qué puerto WS conectarse.
 
 Ejemplo con puertos personalizados:
 ```bash
