@@ -3,224 +3,217 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Tecos Chat · UAG</title>
-<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<title>WhatsApp 2</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-  /* ── Variables UAG ─────────────────────────────────────── */
   :root {
-    --tinto:    #6B1020;
-    --tinto-d:  #4a0b16;
-    --tinto-l:  #8a1528;
-    --gris:     #2C2C2C;
-    --gris-l:   #3d3d3d;
-    --gris-ll:  #555;
-    --naranja:  #E8890C;
-    --naranja-l:#f5a030;
-    --blanco:   #f5f0eb;
-    --texto:    #e8e0d8;
-    --burbuja-own: #6B1020;
-    --burbuja-other: #3d3d3d;
+    --wa-bg:         #111b21;
+    --wa-panel:      #202c33;
+    --wa-header:     #202c33;
+    --wa-input-bg:   #2a3942;
+    --wa-bubble-own: #005c4b;
+    --wa-bubble-other: #202c33;
+    --wa-green:      #00a884;
+    --wa-green-d:    #008069;
+    --wa-text:       #e9edef;
+    --wa-text-dim:   #8696a0;
+    --wa-divider:    #2a3942;
+    --wa-icon:       #aebac1;
   }
 
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
   body {
     font-family: 'Inter', sans-serif;
-    background: var(--gris);
-    color: var(--texto);
+    background: var(--wa-bg);
+    color: var(--wa-text);
     height: 100dvh;
     display: flex;
     flex-direction: column;
     overflow: hidden;
   }
 
-  /* ── Header ────────────────────────────────────────────── */
+  /* ── Header ── */
   header {
-    background: var(--tinto-d);
-    padding: 0 20px;
-    height: 64px;
+    background: var(--wa-header);
+    padding: 0 16px;
+    height: 60px;
     display: flex;
     align-items: center;
-    gap: 14px;
-    border-bottom: 3px solid var(--naranja);
+    gap: 12px;
     flex-shrink: 0;
-    position: relative;
   }
 
   .logo-shield {
-    width: 38px; height: 38px;
-    background: var(--naranja);
-    clip-path: polygon(50% 0%, 100% 20%, 100% 70%, 50% 100%, 0% 70%, 0% 20%);
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    background: var(--wa-green);
     display: flex; align-items: center; justify-content: center;
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: 14px; color: var(--tinto-d);
     flex-shrink: 0;
+    font-size: 18px;
   }
 
   .header-title {
-    display: flex; flex-direction: column;
+    display: flex; flex-direction: column; flex: 1;
   }
 
   .header-title span:first-child {
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: 22px;
-    letter-spacing: 2px;
-    color: var(--naranja);
-    line-height: 1;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--wa-text);
+    line-height: 1.2;
   }
 
   .header-title span:last-child {
-    font-size: 11px;
-    color: #c0a898;
-    letter-spacing: 0.5px;
+    font-size: 12px;
+    color: var(--wa-text-dim);
   }
 
   #status-dot {
-    width: 9px; height: 9px;
+    width: 8px; height: 8px;
     border-radius: 50%;
-    background: #888;
-    margin-left: auto;
+    background: #555;
     transition: background 0.4s;
     flex-shrink: 0;
   }
-  #status-dot.online { background: #4caf50; box-shadow: 0 0 6px #4caf50; }
+  #status-dot.online  { background: var(--wa-green); }
   #status-dot.offline { background: #f44336; }
 
   #server-tag {
     font-size: 11px;
-    color: #c0a898;
-    margin-left: 6px;
+    color: var(--wa-text-dim);
+    margin-right: 6px;
   }
 
-  /* ── Login screen ──────────────────────────────────────── */
+  /* ── Login ── */
   #login-screen {
     flex: 1;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: var(--gris);
+    background: var(--wa-bg);
   }
 
   .login-box {
-    background: var(--gris-l);
-    border: 1px solid var(--tinto-l);
-    border-top: 4px solid var(--naranja);
-    border-radius: 10px;
+    background: var(--wa-panel);
+    border-radius: 12px;
     padding: 40px 36px;
-    width: 320px;
+    width: 340px;
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 18px;
     box-shadow: 0 8px 32px rgba(0,0,0,0.5);
   }
 
   .login-box h2 {
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: 26px;
-    letter-spacing: 2px;
-    color: var(--naranja);
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--wa-text);
     text-align: center;
   }
 
   .login-box p {
-    font-size: 12px;
-    color: #aaa;
+    font-size: 13px;
+    color: var(--wa-text-dim);
     text-align: center;
-    margin-top: -8px;
+    margin-top: -10px;
   }
 
   .login-box label {
     font-size: 12px;
-    color: #bbb;
-    margin-bottom: 4px;
+    color: var(--wa-text-dim);
+    margin-bottom: 6px;
     display: block;
   }
 
   .login-box input {
     width: 100%;
-    background: var(--gris);
-    border: 1px solid var(--gris-ll);
-    border-radius: 6px;
+    background: var(--wa-input-bg);
+    border: none;
+    border-bottom: 2px solid var(--wa-green);
+    border-radius: 4px 4px 0 0;
     padding: 10px 12px;
-    color: var(--texto);
-    font-size: 14px;
+    color: var(--wa-text);
+    font-size: 15px;
     font-family: 'Inter', sans-serif;
     outline: none;
     transition: border-color 0.2s;
   }
 
   .login-box input:focus {
-    border-color: var(--naranja);
+    border-bottom-color: var(--wa-green);
+    background: #323f49;
   }
 
   .btn-entrar {
-    background: var(--tinto);
-    color: var(--naranja);
+    background: var(--wa-green);
+    color: #fff;
     border: none;
-    border-radius: 6px;
-    padding: 12px;
-    font-family: 'Bebas Neue', sans-serif;
-    font-size: 18px;
-    letter-spacing: 2px;
+    border-radius: 24px;
+    padding: 13px;
+    font-family: 'Inter', sans-serif;
+    font-size: 15px;
+    font-weight: 600;
     cursor: pointer;
     transition: background 0.2s, transform 0.1s;
     margin-top: 4px;
   }
 
-  .btn-entrar:hover { background: var(--tinto-l); transform: translateY(-1px); }
+  .btn-entrar:hover  { background: var(--wa-green-d); transform: translateY(-1px); }
   .btn-entrar:active { transform: translateY(0); }
 
-  /* ── Chat screen ───────────────────────────────────────── */
+  /* ── Chat ── */
   #chat-screen {
     flex: 1;
     display: none;
     flex-direction: column;
     overflow: hidden;
+    /* fondo punteado estilo WA */
+    background-color: var(--wa-bg);
+    background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23182229' fill-opacity='0.8'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
   }
 
   #messages {
     flex: 1;
     overflow-y: auto;
-    padding: 16px 16px 8px;
+    padding: 12px 16px 8px;
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 3px;
     scroll-behavior: smooth;
   }
 
-  #messages::-webkit-scrollbar { width: 5px; }
+  #messages::-webkit-scrollbar { width: 6px; }
   #messages::-webkit-scrollbar-track { background: transparent; }
-  #messages::-webkit-scrollbar-thumb { background: var(--gris-ll); border-radius: 3px; }
+  #messages::-webkit-scrollbar-thumb { background: #374045; border-radius: 3px; }
 
-  /* ── Mensajes ──────────────────────────────────────────── */
+  /* ── Burbujas ── */
   .msg-wrap {
     display: flex;
     flex-direction: column;
-    max-width: 72%;
-    animation: fadeUp 0.2s ease;
+    max-width: 65%;
+    animation: fadeIn 0.15s ease;
   }
 
-  @keyframes fadeUp {
-    from { opacity: 0; transform: translateY(8px); }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(4px); }
     to   { opacity: 1; transform: translateY(0); }
   }
 
-  .msg-wrap.own  { align-self: flex-end; align-items: flex-end; }
+  .msg-wrap.own   { align-self: flex-end;   align-items: flex-end; }
   .msg-wrap.other { align-self: flex-start; align-items: flex-start; }
 
   .msg-name {
-    font-size: 11px;
-    color: var(--naranja);
-    margin-bottom: 2px;
-    padding: 0 4px;
+    font-size: 12px;
     font-weight: 600;
+    color: var(--wa-green);
+    margin-bottom: 2px;
+    padding: 0 6px;
   }
 
-  .msg-wrap.own .msg-name { color: #c0a898; }
-
   .msg-bubble {
-    padding: 9px 14px;
-    border-radius: 16px;
+    padding: 7px 12px 8px;
+    border-radius: 8px;
     font-size: 14px;
     line-height: 1.5;
     word-break: break-word;
@@ -228,65 +221,63 @@
   }
 
   .msg-wrap.own .msg-bubble {
-    background: var(--tinto);
-    border-bottom-right-radius: 4px;
-    color: #f0e0d0;
+    background: var(--wa-bubble-own);
+    border-top-right-radius: 0;
+    color: var(--wa-text);
   }
 
   .msg-wrap.other .msg-bubble {
-    background: var(--burbuja-other);
-    border-bottom-left-radius: 4px;
-    color: var(--texto);
+    background: var(--wa-bubble-other);
+    border-top-left-radius: 0;
+    color: var(--wa-text);
   }
 
   .msg-time {
     font-size: 10px;
-    color: #888;
+    color: var(--wa-text-dim);
     margin-top: 2px;
-    padding: 0 4px;
+    padding: 0 6px;
   }
 
-  /* Mensaje de sistema */
   .msg-system {
     align-self: center;
-    font-size: 11px;
-    color: #777;
-    background: rgba(255,255,255,0.04);
-    padding: 4px 12px;
-    border-radius: 20px;
-    margin: 4px 0;
+    font-size: 11.5px;
+    color: var(--wa-text-dim);
+    background: rgba(17,27,33,0.85);
+    border: 1px solid var(--wa-divider);
+    padding: 5px 14px;
+    border-radius: 8px;
+    margin: 8px 0;
   }
 
-  /* ── Input bar ─────────────────────────────────────────── */
+  /* ── Input bar ── */
   #input-bar {
     display: flex;
+    align-items: center;
     gap: 8px;
-    padding: 12px 16px;
-    background: var(--tinto-d);
-    border-top: 2px solid var(--naranja);
+    padding: 10px 14px;
+    background: var(--wa-header);
     flex-shrink: 0;
   }
 
   #msg-input {
     flex: 1;
-    background: var(--gris-l);
-    border: 1px solid var(--gris-ll);
-    border-radius: 22px;
-    padding: 10px 16px;
-    color: var(--texto);
-    font-size: 14px;
+    background: var(--wa-input-bg);
+    border: none;
+    border-radius: 24px;
+    padding: 10px 18px;
+    color: var(--wa-text);
+    font-size: 15px;
     font-family: 'Inter', sans-serif;
     outline: none;
-    transition: border-color 0.2s;
     resize: none;
   }
 
-  #msg-input:focus { border-color: var(--naranja); }
-  #msg-input::placeholder { color: #666; }
+  #msg-input::placeholder { color: var(--wa-text-dim); }
 
   #send-btn {
-    width: 44px; height: 44px;
-    background: var(--naranja);
+    width: 46px; height: 46px;
+    background: var(--wa-green);
     border: none;
     border-radius: 50%;
     cursor: pointer;
@@ -295,19 +286,18 @@
     transition: background 0.2s, transform 0.1s;
   }
 
-  #send-btn:hover { background: var(--naranja-l); transform: scale(1.05); }
+  #send-btn:hover  { background: var(--wa-green-d); transform: scale(1.05); }
   #send-btn:active { transform: scale(0.97); }
+  #send-btn svg { fill: #fff; }
 
-  #send-btn svg { fill: var(--tinto-d); }
-
-  /* ── Offline banner ────────────────────────────────────── */
+  /* ── Offline banner ── */
   #offline-banner {
     display: none;
-    background: #7a2020;
-    color: #f5b0b0;
+    background: #2a3942;
+    color: var(--wa-text-dim);
     text-align: center;
     font-size: 12px;
-    padding: 5px;
+    padding: 6px;
     flex-shrink: 0;
   }
 </style>
@@ -316,10 +306,10 @@
 
 <!-- ── Header siempre visible ─────────────────────────────────────────────── -->
 <header>
-  <div class="logo-shield">UAG</div>
+  <div class="logo-shield">💬</div>
   <div class="header-title">
-    <span>TECOS CHAT</span>
-    <span>Chat Grupal · UAG Guadalajara</span>
+    <span>WhatsApp 2</span>
+    <span>Chat Grupal</span>
   </div>
   <span id="server-tag"></span>
   <div id="status-dot"></div>
@@ -330,13 +320,13 @@
 <!-- ── Login ──────────────────────────────────────────────────────────────── -->
 <div id="login-screen">
   <div class="login-box">
-    <h2>¡Arre Tecos!</h2>
-    <p>Entra al chat grupal de la UAG</p>
+    <h2>WhatsApp 2</h2>
+    <p>Ingresa tu nombre para unirte al chat</p>
     <div>
       <label>Tu nombre</label>
-      <input id="name-input" type="text" placeholder="Ej: Chuy Ramírez" maxlength="30">
+      <input id="name-input" type="text" placeholder="Tu nombre..." maxlength="30">
     </div>
-    <button class="btn-entrar" onclick="entrar()">Entrar al Chat</button>
+    <button class="btn-entrar" onclick="entrar()">Continuar</button>
   </div>
 </div>
 
