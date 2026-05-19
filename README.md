@@ -12,6 +12,15 @@ Necesitas `server.py`, `index.html` y la carpeta `static/` en la misma carpeta.
 El archivo `static/styles.css` contiene los estilos del chat y `static/app.js`
 contiene la lógica del navegador.
 La imagen `static/default_pfp.webp` se usa como foto de perfil default.
+El navegador guarda la cuenta en `localStorage`, así que si abres otra pestaña
+se reutilizan automáticamente el mismo nombre y la misma foto de perfil.
+La cuenta usa un ID generado en el navegador; el nombre es solo visible y puede
+cambiar sin confundirse con otra persona que use el mismo nombre.
+Desde el header puedes editar el perfil; los cambios se comparten con la lista
+de usuarios conectados.
+
+El subtítulo del chat muestra los usuarios conectados. Cada navegador avisa su
+presencia por WebSocket y los servidores intercambian esa lista por HTTP.
 
 ---
 
@@ -80,6 +89,14 @@ la metadata y el enlace de descarga, así el envío de mensajes no carga los 20 
 Los archivos se sirven desde `GET /files/<id>`. Si usas puertos personalizados,
 la URL que imprime el servidor incluye `h1`, `h2`, `p1` y `p2` para que el
 navegador sepa a qué puerto HTTP subir archivos y a qué puerto WS conectarse.
+Cada archivo subido se replica al peer con `POST /sync-file`, así ambos
+servidores pueden servir una copia local del adjunto.
+
+También puedes grabar notas de voz desde el botón de micrófono. El navegador
+las sube como archivo de audio y el chat las muestra con un reproductor.
+Por seguridad del navegador, el micrófono solo funciona en `localhost`,
+`127.0.0.1` o usando HTTPS. Si abres el chat desde otra computadora con una IP
+tipo `http://192.168.x.x:8000`, el navegador puede bloquear el micrófono.
 
 Ejemplo con puertos personalizados:
 ```bash

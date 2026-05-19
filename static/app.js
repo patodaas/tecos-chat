@@ -4,11 +4,21 @@
   // Nombre que escribe el usuario en la pantalla de entrada.
   let miNombre = "";
 
+  // ID estable de la cuenta. No cambia aunque el usuario edite su nombre.
+  let miUserId = "";
+
   // URL de la foto de perfil que se manda junto con cada mensaje.
   let miAvatarUrl = "/static/default_pfp.webp";
 
   // Imagen elegida en el login antes de entrar al chat.
   let fotoPerfilSeleccionada = null;
+
+  // Imagen nueva elegida desde el modal de editar perfil.
+  let fotoPerfilEditada = null;
+
+  // Controla la grabacion de notas de voz.
+  let mediaRecorder = null;
+  let audioChunks = [];
 
   // Timer usado cuando ambos servidores fallan y toca reintentar despues.
   let reconnectTimer = null;
@@ -21,6 +31,9 @@
 
   // Limite especial para foto de perfil: 2 MB.
   const MAX_PROFILE_BYTES = 2 * 1024 * 1024;
+
+  // Clave donde el navegador guarda la cuenta para reutilizarla en otras pestanas.
+  const ACCOUNT_STORAGE_KEY = "tecos-chat-account";
 
   // Construye las URLs WebSocket de los dos servidores.
   // Los valores salen de la URL: ?s1=IP&s2=IP&p1=PUERTO_WS&p2=PUERTO_WS.
@@ -58,9 +71,20 @@
   // Bandera para saber si ya intentamos cambiar al servidor alterno.
   let intentoFallback = false;
 
+  // Lista de usuarios conectados que manda el servidor.
+  let usuariosConectados = [];
+
   // Elige aleatoriamente a que servidor se conectara el navegador.
   function servidorRandom() {
     return Math.random() < 0.5 ? 0 : 1;
+  }
+
+  // Genera un ID local suficientemente unico para identificar una cuenta del navegador.
+  function generarUserId() {
+    if (crypto.randomUUID) {
+      return crypto.randomUUID();
+    }
+    return `user-${Date.now()}-${Math.random().toString(16).slice(2)}`;
   }
 
   // Entra al chat despues de validar que el usuario escribio un nombre.
@@ -73,6 +97,7 @@
 
     // Guardamos el nombre para identificar mensajes propios y ajenos.
     miNombre = nombre;
+    miUserId ||= generarUserId();
 
     // Escogemos servidor inicial al azar para repartir conexiones.
     servidorActual = servidorRandom();
@@ -91,11 +116,76 @@
       miAvatarUrl = "/static/default_pfp.webp";
     }
 
+    // Persistimos la cuenta para que otra pestana del mismo navegador use la misma identidad.
+    guardarCuenta();
+
     // Ocultamos login y mostramos la interfaz del chat.
     document.getElementById("login-screen").style.display = "none";
     document.getElementById("chat-screen").style.display = "flex";
+    document.getElementById("edit-profile-btn").style.display = "flex";
 
     // Abrimos la conexion WebSocket.
+    conectar();
+  }
+
+  // Guarda la cuenta actual en localStorage del navegador.
+  function guardarCuenta() {
+    localStorage.setItem(ACCOUNT_STORAGE_KEY, JSON.stringify({
+      id: miUserId,
+      name: miNombre,
+      avatar: miAvatarUrl
+    }));
+  }
+
+  // Lee la cuenta persistida. Si no existe o esta corrupta, devuelve null.
+  function cargarCuentaGuardada() {
+    try {
+      const raw = localStorage.getItem(ACCOUNT_STORAGE_KEY);
+      if (!raw) {
+        return null;
+      }
+
+      const account = JSON.parse(raw);
+      if (!account.name) {
+        return null;
+      }
+
+      return {
+        id: String(account.id || generarUserId()),
+        name: String(account.name),
+        avatar: String(account.avatar || "/static/default_pfp.webp")
+      };
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // Si ya hay una cuenta guardada, entra automaticamente con esa identidad.
+  function restaurarCuentaGuardada() {
+    const account = cargarCuentaGuardada();
+    if (!account) {
+      document.getElementById("name-input").focus();
+      return;
+    }
+
+    miNombre = account.name;
+    miUserId = account.id;
+    miAvatarUrl = account.avatar;
+    fotoPerfilSeleccionada = null;
+
+    // Si la cuenta venia de una version anterior sin ID, persistimos el nuevo ID.
+    guardarCuenta();
+
+    document.getElementById("name-input").value = miNombre;
+    document.getElementById("profile-preview").src = miAvatarUrl;
+
+    servidorActual = servidorRandom();
+    intentoFallback = false;
+
+    document.getElementById("login-screen").style.display = "none";
+    document.getElementById("chat-screen").style.display = "flex";
+    document.getElementById("edit-profile-btn").style.display = "flex";
+
     conectar();
   }
 
@@ -136,6 +226,7 @@
       }
 
       agregarSistema(`Conectado al Servidor ${num} ✓`);
+      enviarPresencia();
     };
 
     // Procesa mensajes que llegan desde el servidor.
@@ -151,6 +242,12 @@
       // message llega cuando otro usuario manda algo nuevo.
       if (data.type === "message") {
         renderMensaje(data);
+        return;
+      }
+
+      // presence trae la lista global de usuarios conectados.
+      if (data.type === "presence") {
+        actualizarUsuariosConectados(data.users || []);
       }
     };
 
@@ -197,6 +294,39 @@
     dot.className = online ? "online" : "offline";
   }
 
+  // Envia al servidor la identidad de este cliente para la lista de conectados.
+  function enviarPresencia() {
+    if (!ws || ws.readyState !== WebSocket.OPEN || !miNombre) {
+      return;
+    }
+
+    ws.send(JSON.stringify({
+      type: "hello",
+      id: miUserId,
+      user: miNombre,
+      avatar: miAvatarUrl
+    }));
+  }
+
+  // Actualiza el subtitulo del header con los usuarios conectados.
+  function actualizarUsuariosConectados(users) {
+    usuariosConectados = users;
+    const label = document.getElementById("users-list");
+
+    if (!users.length) {
+      label.textContent = "Sin usuarios conectados";
+      return;
+    }
+
+    const names = users.map(item => item.user).filter(Boolean);
+    if (names.length <= 3) {
+      label.textContent = names.join(", ");
+      return;
+    }
+
+    label.textContent = `${names.slice(0, 3).join(", ")} +${names.length - 3}`;
+  }
+
   // Envia un mensaje de texto y, si existe, primero sube el archivo por HTTP.
   async function enviar() {
     const input = document.getElementById("msg-input");
@@ -210,6 +340,7 @@
     // Mensaje base: usuario, texto y hora visible en la burbuja.
     const msg = {
       user: miNombre,
+      userId: miUserId,
       avatar: miAvatarUrl,
       text: texto,
       time: new Date().toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" })
@@ -218,18 +349,23 @@
     // Si hay archivo seleccionado, se sube por HTTP antes de mandar el mensaje WS.
     if (archivoSeleccionado) {
       try {
-        mostrarSubida("Subiendo archivo...");
-        msg.file = await subirArchivo(archivoSeleccionado);
+        mostrarProgresoSubida("Subiendo archivo...", 0);
+        msg.file = await subirArchivo(archivoSeleccionado, (percent) => {
+          mostrarProgresoSubida("Subiendo archivo...", percent);
+        });
       } catch (_) {
         alert("No se pudo subir el archivo.");
+        ocultarProgresoSubida();
         mostrarArchivoSeleccionado();
         return;
       }
+      ocultarProgresoSubida();
     }
 
     // La subida puede tardar; revisamos otra vez que el WebSocket siga abierto.
     if (!ws || ws.readyState !== WebSocket.OPEN) {
       alert("Se perdió la conexión antes de enviar el mensaje.");
+      ocultarProgresoSubida();
       mostrarArchivoSeleccionado();
       return;
     }
@@ -247,28 +383,43 @@
   }
 
   // Sube el archivo al endpoint HTTP /upload del servidor conectado.
-  async function subirArchivo(file) {
+  async function subirArchivo(file, onProgress = null) {
     // El navegador lee el archivo como data URL para mandarlo dentro de JSON.
     const data = await leerArchivoComoDataUrl(file);
 
-    // Usamos el servidor HTTP equivalente al servidor WebSocket actual.
-    const res = await fetch(`${HTTP_SERVERS[servidorActual]}/upload`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open("POST", `${HTTP_SERVERS[servidorActual]}/upload`);
+      xhr.setRequestHeader("Content-Type", "application/json");
+
+      // upload.onprogress permite mostrar avance real de subida.
+      xhr.upload.onprogress = (event) => {
+        if (event.lengthComputable && onProgress) {
+          onProgress(Math.round((event.loaded / event.total) * 100));
+        }
+      };
+
+      xhr.onload = () => {
+        if (xhr.status < 200 || xhr.status >= 300) {
+          reject(new Error("upload failed"));
+          return;
+        }
+
+        try {
+          resolve(JSON.parse(xhr.responseText));
+        } catch (_) {
+          reject(new Error("invalid upload response"));
+        }
+      };
+
+      xhr.onerror = () => reject(new Error("upload failed"));
+
+      xhr.send(JSON.stringify({
         name: file.name,
         type: file.type || "application/octet-stream",
         data
-      })
+      }));
     });
-
-    // Si el servidor responde error, avisamos a enviar() con una excepcion.
-    if (!res.ok) {
-      throw new Error("upload failed");
-    }
-
-    // Respuesta esperada: id, name, type, size y url del archivo.
-    return await res.json();
   }
 
   // Lee un File del navegador y lo convierte a data URL base64.
@@ -306,6 +457,26 @@
     chip.style.display = "flex";
   }
 
+  // Muestra la barra de progreso de subida con porcentaje.
+  function mostrarProgresoSubida(texto, percent) {
+    const box = document.getElementById("upload-progress");
+    const bar = document.getElementById("upload-progress-bar");
+    const label = document.getElementById("upload-progress-text");
+    box.style.display = "block";
+    bar.style.width = `${Math.max(0, Math.min(100, percent))}%`;
+    label.textContent = `${texto} ${percent}%`;
+  }
+
+  // Oculta y reinicia la barra de progreso.
+  function ocultarProgresoSubida() {
+    const box = document.getElementById("upload-progress");
+    const bar = document.getElementById("upload-progress-bar");
+    const label = document.getElementById("upload-progress-text");
+    box.style.display = "none";
+    bar.style.width = "0%";
+    label.textContent = "Subiendo...";
+  }
+
   // Quita el archivo seleccionado y limpia el input file.
   function quitarArchivo() {
     archivoSeleccionado = null;
@@ -337,8 +508,9 @@
   function renderMensaje(msg) {
     const container = document.getElementById("messages");
 
-    // Un mensaje es propio si el nombre coincide con el usuario local.
-    const esPropio = msg.user === miNombre;
+    // Un mensaje es propio si el ID coincide con la cuenta local.
+    // Si viene de mensajes viejos sin ID, se usa el nombre como fallback.
+    const esPropio = msg.userId ? msg.userId === miUserId : msg.user === miNombre;
 
     // wrap alinea la burbuja a la derecha o izquierda.
     const wrap = document.createElement("div");
@@ -392,6 +564,15 @@
         img.src = msg.file.url;
         img.alt = msg.file.name || "Imagen adjunta";
         bubble.appendChild(img);
+      }
+
+      // Las notas de voz y audios se reproducen directamente en el chat.
+      if ((msg.file.type || "").startsWith("audio/")) {
+        const audio = document.createElement("audio");
+        audio.className = "audio-attachment";
+        audio.controls = true;
+        audio.src = msg.file.url;
+        bubble.appendChild(audio);
       }
 
       // El enlace permite abrir o descargar el archivo.
@@ -450,8 +631,95 @@
     container.scrollTop = container.scrollHeight;
   }
 
-  // Enfoca el nombre apenas carga la pagina.
-  document.getElementById("name-input").focus();
+  // Inicia o detiene la grabacion de una nota de voz.
+  async function toggleGrabacion() {
+    if (mediaRecorder && mediaRecorder.state === "recording") {
+      mediaRecorder.stop();
+      return;
+    }
+
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      alert("Este navegador no permite usar el micrófono desde esta página. Abre el chat en localhost o usa HTTPS.");
+      return;
+    }
+
+    if (!window.isSecureContext) {
+      alert("El micrófono requiere una conexión segura. Abre el chat como http://localhost:8000 en esta máquina o usa HTTPS para acceder desde otra computadora.");
+      return;
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      audioChunks = [];
+      mediaRecorder = new MediaRecorder(stream);
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunks.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = () => {
+        stream.getTracks().forEach(track => track.stop());
+        document.getElementById("voice-btn").classList.remove("recording");
+
+        const blob = new Blob(audioChunks, { type: mediaRecorder.mimeType || "audio/webm" });
+        archivoSeleccionado = new File([blob], `nota-voz-${Date.now()}.webm`, {
+          type: blob.type || "audio/webm"
+        });
+        document.getElementById("msg-input").value ||= "Nota de voz";
+        mostrarArchivoSeleccionado();
+      };
+
+      mediaRecorder.start();
+      document.getElementById("voice-btn").classList.add("recording");
+      mostrarSubida("Grabando nota de voz...");
+    } catch (error) {
+      alert(`No se pudo acceder al micrófono (${error.name}). Revisa permisos del navegador y del sistema.`);
+    }
+  }
+
+  // Abre el modal para editar nombre y foto.
+  function abrirPerfil() {
+    fotoPerfilEditada = null;
+    document.getElementById("profile-name-input").value = miNombre;
+    document.getElementById("profile-edit-preview").src = miAvatarUrl;
+    document.getElementById("profile-modal").classList.add("open");
+  }
+
+  // Cierra el modal de perfil sin guardar cambios.
+  function cerrarPerfil() {
+    fotoPerfilEditada = null;
+    document.getElementById("profile-edit-input").value = "";
+    document.getElementById("profile-modal").classList.remove("open");
+  }
+
+  // Guarda cambios de perfil y avisa al servidor para actualizar la lista de usuarios.
+  async function guardarPerfilEditado() {
+    const nuevoNombre = document.getElementById("profile-name-input").value.trim();
+    if (!nuevoNombre) {
+      alert("El nombre no puede estar vacío.");
+      return;
+    }
+
+    miNombre = nuevoNombre;
+    miUserId ||= generarUserId();
+
+    if (fotoPerfilEditada) {
+      try {
+        miAvatarUrl = (await subirArchivo(fotoPerfilEditada)).url;
+      } catch (_) {
+        alert("No se pudo subir la nueva foto.");
+      }
+    }
+
+    guardarCuenta();
+    enviarPresencia();
+    cerrarPerfil();
+  }
+
+  // Intenta restaurar la cuenta guardada apenas carga la pagina.
+  restaurarCuentaGuardada();
 
   // Permite entrar al chat presionando Enter en el input del nombre.
   document.getElementById("name-input").addEventListener("keydown", e => {
@@ -488,6 +756,32 @@
     // Guardamos la imagen y mostramos una vista previa local.
     fotoPerfilSeleccionada = file;
     document.getElementById("profile-preview").src = URL.createObjectURL(file);
+  });
+
+  // Valida y previsualiza la foto seleccionada desde el modal de perfil.
+  document.getElementById("profile-edit-input").addEventListener("change", e => {
+    const file = e.target.files[0];
+
+    if (!file) {
+      fotoPerfilEditada = null;
+      document.getElementById("profile-edit-preview").src = miAvatarUrl;
+      return;
+    }
+
+    if (!file.type.startsWith("image/")) {
+      alert("La foto de perfil debe ser una imagen.");
+      e.target.value = "";
+      return;
+    }
+
+    if (file.size > MAX_PROFILE_BYTES) {
+      alert("La foto de perfil debe pesar máximo 2 MB.");
+      e.target.value = "";
+      return;
+    }
+
+    fotoPerfilEditada = file;
+    document.getElementById("profile-edit-preview").src = URL.createObjectURL(file);
   });
 
   // Guarda y valida el archivo cuando el usuario lo selecciona.

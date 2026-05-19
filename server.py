@@ -66,7 +66,8 @@ PEER_HTTP = (
 
 messages = []
 uploads   = {}
-clients  = set()
+clients  = {}
+peer_users = []
 loop     = None
 
 # ── Detectar IP propia para mostrarla al arrancar ─────────────────────────────
@@ -100,8 +101,8 @@ def fetch_history_from_peer():
 
 async def broadcast(data, skip=None):
     """Manda data a todos los clientes WS, opcionalmente saltando a skip."""
-    dead = set()
-    for ws in list(clients):
+    dead = []
+    for ws in list(clients.keys()):
         # Si skip es el emisor, evitamos mandarle de vuelta su propio mensaje.
         if ws is skip:
             continue
@@ -110,13 +111,68 @@ async def broadcast(data, skip=None):
         except Exception:
             # Si un cliente ya se desconecto, lo quitamos despues del ciclo.
             dead.add(ws)
-    clients.difference_update(dead)
+    for ws in dead:
+        clients.pop(ws, None)
+
+def connected_users():
+    """Devuelve usuarios locales conectados, sin repetir ID."""
+    users = {}
+    for info in clients.values():
+        user_id = info.get("id")
+        name = info.get("user")
+        if user_id and name:
+            users[user_id] = {
+                "id": user_id,
+                "user": name,
+                "avatar": info.get("avatar", "/static/default_pfp.webp"),
+            }
+    return list(users.values())
+
+def all_connected_users():
+    """Combina usuarios locales y usuarios reportados por el peer."""
+    users = {item["id"]: item for item in connected_users() if item.get("id")}
+    for item in peer_users:
+        user_id = item.get("id")
+        name = item.get("user")
+        if user_id and name and user_id not in users:
+            users[user_id] = {
+                "id": user_id,
+                "user": name,
+                "avatar": item.get("avatar", "/static/default_pfp.webp"),
+            }
+    return list(users.values())
+
+async def broadcast_presence():
+    """Manda a los clientes la lista actual de usuarios conectados."""
+    await broadcast(json.dumps({
+        "type": "presence",
+        "users": all_connected_users(),
+    }))
+
+def push_presence_to_peer():
+    """Envia al peer la lista local de usuarios conectados."""
+    if not PEER_HTTP:
+        return
+    try:
+        body = json.dumps({"users": connected_users()}).encode()
+        req = urllib.request.Request(
+            f"{PEER_HTTP}/presence", data=body,
+            headers={"Content-Type": "application/json"}, method="POST"
+        )
+        urllib.request.urlopen(req, timeout=2)
+    except Exception:
+        pass
 
 def push_to_peer(msg):
     """Envia un mensaje al otro servidor por HTTP para mantener ambos historiales iguales."""
     if not PEER_HTTP:
         return
     try:
+        # Si el mensaje tiene archivo, primero mandamos el archivo al peer.
+        file_id = msg.get("file", {}).get("id") if isinstance(msg.get("file"), dict) else None
+        if file_id:
+            push_file_to_peer(file_id)
+
         body = json.dumps(msg).encode()
         req  = urllib.request.Request(
             f"{PEER_HTTP}/sync", data=body,
@@ -125,6 +181,28 @@ def push_to_peer(msg):
         urllib.request.urlopen(req, timeout=2)
     except Exception:
         pass  # peer offline, sin problema
+
+def push_file_to_peer(file_id):
+    """Replica un archivo subido hacia el otro servidor."""
+    if not PEER_HTTP or file_id not in uploads:
+        return
+    try:
+        file_data = uploads[file_id]
+        encoded = base64.b64encode(file_data["content"]).decode()
+        body = json.dumps({
+            "id": file_id,
+            "name": file_data["name"],
+            "type": file_data["type"],
+            "size": file_data["size"],
+            "data": encoded,
+        }).encode()
+        req = urllib.request.Request(
+            f"{PEER_HTTP}/sync-file", data=body,
+            headers={"Content-Type": "application/json"}, method="POST"
+        )
+        urllib.request.urlopen(req, timeout=8)
+    except Exception:
+        pass
 
 def send_json(handler, status, payload):
     """Responde JSON desde el servidor HTTP."""
@@ -169,6 +247,7 @@ def prepare_message(raw):
     # Normalizamos texto, usuario y hora para evitar datos demasiado largos.
     msg = {
         "type": "message",
+        "userId": str(raw.get("userId", raw.get("user_id", "")))[:80],
         "user": str(raw.get("user", "Anonimo"))[:30],
         "avatar": str(raw.get("avatar", "/static/default_pfp.webp"))[:500],
         "text": str(raw.get("text", ""))[:500],
@@ -195,6 +274,18 @@ def prepare_message(raw):
 
     if not msg["text"] and "file" not in msg:
         return None
+
+    return msg
+
+def localize_file_url(handler, msg):
+    """Si este servidor tiene el archivo, cambia la URL del mensaje a su copia local."""
+    file_meta = msg.get("file")
+    if not isinstance(file_meta, dict):
+        return msg
+
+    file_id = file_meta.get("id")
+    if file_id in uploads:
+        file_meta["url"] = upload_url(handler, file_id)
 
     return msg
 
@@ -318,6 +409,7 @@ class Handler(BaseHTTPRequestHandler):
                 "type": str(payload.get("type") or mime)[:100],
                 "size": len(content),
             }
+            threading.Thread(target=push_file_to_peer, args=(file_id,), daemon=True).start()
             # Respondemos solo metadata; el mensaje de chat usara esta URL.
             send_json(self, 200, {
                 "id": file_id,
@@ -327,6 +419,29 @@ class Handler(BaseHTTPRequestHandler):
                 "url": upload_url(self, file_id),
             })
 
+        elif path == "/sync-file":
+            # El peer envia aqui una copia de un archivo subido en el otro servidor.
+            length = int(self.headers.get("Content-Length", 0))
+            if length > MAX_UPLOAD_PAYLOAD_BYTES:
+                send_json(self, 413, {"error": "Archivo demasiado grande"}); return
+            try:
+                payload = json.loads(self.rfile.read(length))
+                file_id = str(payload.get("id", ""))[:80]
+                content = base64.b64decode(str(payload.get("data", "")), validate=True)
+            except Exception:
+                send_json(self, 400, {"error": "Archivo invalido"}); return
+
+            if not file_id or len(content) > MAX_FILE_BYTES:
+                send_json(self, 400, {"error": "Archivo invalido"}); return
+
+            uploads[file_id] = {
+                "content": content,
+                "name": str(payload.get("name", "archivo"))[:120],
+                "type": str(payload.get("type", "application/octet-stream"))[:100],
+                "size": len(content),
+            }
+            send_json(self, 200, {"ok": True})
+
         elif path == "/sync":
             # Otro servidor envia aqui mensajes para mantener el historial replicado.
             length = int(self.headers.get("Content-Length", 0))
@@ -334,7 +449,7 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_response(413); self.end_headers(); return
             try:
                 # Validamos el mensaje recibido antes de guardarlo.
-                msg = prepare_message(json.loads(self.rfile.read(length)))
+                msg = localize_file_url(self, prepare_message(json.loads(self.rfile.read(length))))
             except Exception:
                 self.send_response(400); self.end_headers(); return
             if not msg:
@@ -349,6 +464,30 @@ class Handler(BaseHTTPRequestHandler):
             add_cors_headers(self)
             self.end_headers()
             self.wfile.write(b"ok")
+        elif path == "/presence":
+            # El peer reporta sus usuarios conectados para armar una lista global.
+            global peer_users
+            length = int(self.headers.get("Content-Length", 0))
+            try:
+                payload = json.loads(self.rfile.read(length))
+                peer_users = [
+                    {
+                        "id": str(item.get("id", ""))[:80],
+                        "user": str(item.get("user", ""))[:30],
+                        "avatar": str(item.get("avatar", "/static/default_pfp.webp"))[:500],
+                    }
+                    for item in payload.get("users", [])
+                    if item.get("id") and item.get("user")
+                ]
+            except Exception:
+                self.send_response(400); self.end_headers(); return
+
+            if loop:
+                asyncio.run_coroutine_threadsafe(broadcast_presence(), loop)
+            self.send_response(200)
+            add_cors_headers(self)
+            self.end_headers()
+            self.wfile.write(b"ok")
         else:
             self.send_response(404); self.end_headers()
 
@@ -357,14 +496,27 @@ class Handler(BaseHTTPRequestHandler):
 async def ws_handler(ws):
     """Maneja una conexion WebSocket de un navegador."""
     # Guardamos el cliente para poder enviarle mensajes futuros.
-    clients.add(ws)
+    clients[ws] = {}
 
     # Apenas se conecta, recibe todo el historial acumulado.
     await ws.send(json.dumps({"type": "history", "messages": messages}))
+    await ws.send(json.dumps({"type": "presence", "users": all_connected_users()}))
     try:
         async for raw in ws:
-            # Cada mensaje entrante debe ser JSON y pasar por prepare_message.
-            msg = prepare_message(json.loads(raw))
+            # Cada mensaje entrante debe ser JSON. Puede ser presencia o mensaje de chat.
+            data = json.loads(raw)
+
+            if data.get("type") == "hello":
+                clients[ws] = {
+                    "id": str(data.get("id", ""))[:80],
+                    "user": str(data.get("user", ""))[:30],
+                    "avatar": str(data.get("avatar", "/static/default_pfp.webp"))[:500],
+                }
+                await broadcast_presence()
+                threading.Thread(target=push_presence_to_peer, daemon=True).start()
+                continue
+
+            msg = prepare_message(data)
             if not msg:
                 continue
 
@@ -377,7 +529,9 @@ async def ws_handler(ws):
         pass
     finally:
         # Al salir, quitamos el cliente para no intentar escribirle despues.
-        clients.discard(ws)
+        clients.pop(ws, None)
+        await broadcast_presence()
+        threading.Thread(target=push_presence_to_peer, daemon=True).start()
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 
